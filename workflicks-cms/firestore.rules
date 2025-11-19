@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function hasRole(role) {
+      return isSignedIn() && request.auth.token.role == role;
+    }
+
+    function hasPermission(permission) {
+      return isSignedIn() &&
+        permission in request.auth.token.permissions;
+    }
+
+    match /jobs/{jobId} {
+      allow read: if hasPermission("manageJobs") || hasPermission("viewAnalytics");
+      allow create, update, delete: if hasPermission("manageJobs");
+    }
+
+    match /companies/{companyId} {
+      allow read: if hasPermission("manageCompanies") || hasPermission("manageJobs");
+      allow write: if hasPermission("manageCompanies");
+    }
+
+    match /users/{userId} {
+      allow read: if request.auth.uid == userId || hasPermission("manageAdmins");
+      allow write: if hasPermission("manageAdmins");
+    }
+
+    match /cmsContent/{contentId} {
+      allow read: if true;
+      allow write: if hasPermission("manageContent");
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if hasPermission("viewAnalytics") || hasPermission("manageSettings");
+      allow write: if false;
+    }
+
+    match /config/{document=**} {
+      allow read, write: if hasPermission("manageSettings");
+    }
+  }
+}
